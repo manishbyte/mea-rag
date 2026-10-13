@@ -96,7 +96,11 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         # The existing root main.py returns (graph, resources).
         from main import build_application
 
+        logger.info("Starting RAG application initialization.")
+
         graph, resources = await build_application()
+
+        logger.info("RAG application initialization completed.")
 
         application.state.rag_graph = graph
         application.state.rag_resources = resources
