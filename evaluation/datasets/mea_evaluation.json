@@ -1,0 +1,309 @@
+{
+  "dataset_name": "MEA Annual Report 2025 Evaluation",
+  "version": "1.0",
+  "description": "20 evaluation questions grounded in the supplied mea_chunks.json. Relevant chunk IDs and reference pages are taken from the uploaded chunking file; reference answers summarize the corresponding chunk text.",
+  "questions": [
+    {
+      "question_id": "mea_q001",
+      "question": "What were the main priorities of India’s foreign policy in 2025, according to the report?",
+      "relevant_chunk_ids": [
+        "8b697680a770d27c957d2ce71d2536fdc84bedd815fa3faf33aefff8f758e659"
+      ],
+      "reference_answer": "India pursued a pragmatic, outcome-oriented foreign policy focused on national interests, multilateral engagement, stronger bilateral partnerships and reform of multilateral institutions. Priorities included the Global South, technology, climate action, security, strategic partnerships, neighbourhood connectivity, Digital Public Infrastructure, and humanitarian assistance and disaster relief.",
+      "reference_pages": [
+        5
+      ],
+      "metadata": {
+        "topic": "foreign_policy",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "question_id": "mea_q002",
+      "question": "Which five principles underpin India’s Neighbourhood First approach?",
+      "relevant_chunk_ids": [
+        "53d36154e311cfc67e0bc83f912b204c66189974a4e66a42e2863f6fe859c6d9"
+      ],
+      "reference_answer": "The five principles are Samman (respect), Samvad (dialogue), Sahyog (cooperation), Shanti (peace), and Samriddhi (prosperity).",
+      "reference_pages": [
+        5
+      ],
+      "metadata": {
+        "topic": "neighbourhood_policy",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "question_id": "mea_q003",
+      "question": "What was Operation Sindoor, and what event prompted it?",
+      "relevant_chunk_ids": [
+        "a861928d65c238846450a6f7c7a8a8e92e44a02f44692fd713be86242226bad3",
+        "28efa9785bf0600491bdb4bc8d3db2277836167025ca19932d5dacd75955b8d0"
+      ],
+      "reference_answer": "The report describes Operation Sindoor as India’s calibrated and proportionate response to the Pahalgam terror attack of 22 April 2025. It targeted terrorist infrastructure in Pakistan and Pakistan-occupied Jammu and Kashmir.",
+      "reference_pages": [
+        7,
+        9
+      ],
+      "metadata": {
+        "topic": "security_counterterrorism",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "question_id": "mea_q004",
+      "question": "Which six forward-looking initiatives did India propose at the 2025 G20 Leaders’ Summit?",
+      "relevant_chunk_ids": [
+        "be1d6b5baa34b1122ab6a0145bb58bf5a66c6bd30135e94249457a5ef0795547"
+      ],
+      "reference_answer": "The six initiatives were a G20 Global Traditional Knowledge Repository, an Africa Skills Multiplier, a Global Healthcare Response Team, an Open Satellite Data Partnership, a Critical Minerals Circularity Initiative, and an Initiative on Countering the Drug–Terror Nexus.",
+      "reference_pages": [
+        8
+      ],
+      "metadata": {
+        "topic": "g20_multilateralism",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "question_id": "mea_q005",
+      "question": "Which countries became signatories to the International Solar Alliance treaty, and which completed ratification, as noted in the report?",
+      "relevant_chunk_ids": [
+        "862b63b600bb5aeda63242dd3df0bb087d54dd7ae5cf6cb4dde8d70fe575c493"
+      ],
+      "reference_answer": "Liberia, Angola, and Mongolia became signatories to the International Solar Alliance treaty. Moldova and Lebanon completed ratification.",
+      "reference_pages": [
+        8
+      ],
+      "metadata": {
+        "topic": "climate_energy",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "question_id": "mea_q006",
+      "question": "What was the purpose of Passport Seva Programme Version 2.0?",
+      "relevant_chunk_ids": [
+        "05ae01fce1f6845322c00fc2d3f112a3d61268c9dd7c8fa892055a3e1380091a"
+      ],
+      "reference_answer": "Passport Seva Programme Version 2.0 was designed to create a digitally integrated ecosystem connecting stakeholders involved in passport services, with an emphasis on efficiency, transparency, and user convenience.",
+      "reference_pages": [
+        8
+      ],
+      "metadata": {
+        "topic": "consular_digital_services",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "question_id": "mea_q007",
+      "question": "What trade target does Mission 500 set for India and Japan, and what other key documents were adopted at their 2025 summit?",
+      "relevant_chunk_ids": [
+        "322faaf5dd4000342332c66f84ddb6bf00ef645c4ba2e76073202647669b5ecd"
+      ],
+      "reference_answer": "Mission 500 targets USD 500 billion in bilateral trade by 2030. At the 15th India–Japan Annual Summit in Tokyo, the two countries adopted the India–Japan Joint Vision for the Next Decade and a Joint Declaration on Security Cooperation.",
+      "reference_pages": [
+        6
+      ],
+      "metadata": {
+        "topic": "bilateral_relations_japan",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "question_id": "mea_q008",
+      "question": "What concrete connectivity and energy-cooperation developments between India and Nepal are highlighted in the report?",
+      "relevant_chunk_ids": [
+        "accace5583743cbe5cab6dc4b2304cd12b3c702bd81b9add9c23f0528f1b8b10"
+      ],
+      "reference_answer": "The report highlights new memoranda of understanding for two 400 kV cross-border transmission lines, authorization for 1,131 MW of power exports from Nepal to India, and ongoing railway and infrastructure projects in Nepal.",
+      "reference_pages": [
+        6
+      ],
+      "metadata": {
+        "topic": "bilateral_relations_nepal",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "question_id": "mea_q009",
+      "question": "Which emerging sectors saw enhanced India–Bhutan collaboration in 2025?",
+      "relevant_chunk_ids": [
+        "e83e1bc542403990163844d05154ac87718178b1e293afbb2c0e9072890a498c"
+      ],
+      "reference_answer": "The report identifies renewable energy, health, STEM, fintech, and space as emerging sectors of enhanced India–Bhutan collaboration.",
+      "reference_pages": [
+        6
+      ],
+      "metadata": {
+        "topic": "bilateral_relations_bhutan",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "question_id": "mea_q010",
+      "question": "How many civilians were killed in the Pahalgam attack described in the report, and how did India respond?",
+      "relevant_chunk_ids": [
+        "28efa9785bf0600491bdb4bc8d3db2277836167025ca19932d5dacd75955b8d0"
+      ],
+      "reference_answer": "The report states that the 22 April 2025 Pahalgam attack killed 26 civilians, including one Nepali citizen. India responded with diplomatic measures and military operations under Operation Sindoor targeting terrorist infrastructure in Pakistan and Pakistan-occupied Jammu and Kashmir.",
+      "reference_pages": [
+        9
+      ],
+      "metadata": {
+        "topic": "security_counterterrorism",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "question_id": "mea_q011",
+      "question": "What types of historical and people-to-people connections does the report identify between India and Bangladesh?",
+      "relevant_chunk_ids": [
+        "0a8d0b040425fed01153f8100c4d2c92ed54e3e12b3079d04e320144b403d672"
+      ],
+      "reference_answer": "The report says India and Bangladesh share deep bonds of history, language, culture, and strong people-to-people ties, which have evolved into a broad-based partnership.",
+      "reference_pages": [
+        9
+      ],
+      "metadata": {
+        "topic": "bilateral_relations_bangladesh",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "question_id": "mea_q012",
+      "question": "What scholarship support did Indian programmes provide to Bangladeshi students in academic year 2025–26?",
+      "relevant_chunk_ids": [
+        "4bbdb3f6bba894a472dda724b3c59d8b063e60bcdd17f5ac49145e694c80b561"
+      ],
+      "reference_answer": "In academic year 2025–26, 543 Bangladeshi students were awarded Indian Council for Cultural Relations scholarships and seven students received Ayush Scholarships. The report also notes that around 1,544 Bangladeshi students had received the Suborno Jayanti and Lata Mangeshkar Dance and Music scholarships over the preceding three years.",
+      "reference_pages": [
+        52
+      ],
+      "metadata": {
+        "topic": "education_cultural_cooperation",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "question_id": "mea_q013",
+      "question": "Which areas of cooperation were covered by the seven MoUs signed during the Indian Prime Minister’s April 2025 State Visit to Sri Lanka?",
+      "relevant_chunk_ids": [
+        "37b66efbfbe578e748dd889ca1db936b97d03bc6a6299c3f57bb1bdd41b3ed3c"
+      ],
+      "reference_answer": "The seven MoUs covered defence, health, digital cooperation, and energy. The visit also saw debt-restructuring arrangements concluded and five India-assisted projects jointly inaugurated.",
+      "reference_pages": [
+        11
+      ],
+      "metadata": {
+        "topic": "bilateral_relations_sri_lanka",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "question_id": "mea_q014",
+      "question": "What digital-payment and housing developments were announced or completed during the Indian Prime Minister’s visit to the Maldives?",
+      "relevant_chunk_ids": [
+        "965fb48ddf6ccfa5e57e8d3378f22ea5af2e6a14d57994e00bf7e0be06a1d141"
+      ],
+      "reference_answer": "The visit saw the introduction of UPI network-to-network payments in the Maldives and the handover of 3,300 social housing units in Hulhumalé. It also included terms of reference for free-trade-agreement negotiations and MoUs covering areas such as digital public infrastructure, fisheries, meteorology, and pharmacopoeia standards.",
+      "reference_pages": [
+        13
+      ],
+      "metadata": {
+        "topic": "bilateral_relations_maldives",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "question_id": "mea_q015",
+      "question": "What does the “SECURE” vision for the Shanghai Cooperation Organisation stand for in the report?",
+      "relevant_chunk_ids": [
+        "0793e907d4f98c04089095af9136ba9d4b7d79de6f9d8ea1659d86c19122dc4c"
+      ],
+      "reference_answer": "SECURE stands for Security, Economic development, Connectivity, Unity, Respect for sovereignty and territorial integrity, and Environmental protection.",
+      "reference_pages": [
+        124
+      ],
+      "metadata": {
+        "topic": "sco_multilateralism",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "question_id": "mea_q016",
+      "question": "What regional initiatives did India advance through BIMSTEC, the East Asia Summit, Mekong–Ganga Cooperation, and the Indo-Pacific Oceans Initiative?",
+      "relevant_chunk_ids": [
+        "e530503826e0087fed242c9aabcf1bbfbff99ce9bb50134dbdffcc2ba191ac90"
+      ],
+      "reference_answer": "India hosted connectivity, capacity-building, and cultural initiatives across BIMSTEC, the East Asia Summit, and Mekong–Ganga Cooperation; operationalised the BIMSTEC Energy Centre; and expanded Quick Impact Projects in Cambodia, Laos, Myanmar, and Vietnam. Under the Indo-Pacific Oceans Initiative, India worked with partners on themes including maritime security, disaster management, and digital connectivity.",
+      "reference_pages": [
+        17
+      ],
+      "metadata": {
+        "topic": "regional_cooperation",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "question_id": "mea_q017",
+      "question": "What role did India take on in the Indian Ocean Rim Association (IORA), and which areas of cooperation did it advance?",
+      "relevant_chunk_ids": [
+        "f822a88f23cd8dfbaa014246ee40638a5d8083e75c445da384c0c5ff068668e9"
+      ],
+      "reference_answer": "India assumed the IORA chairship for 2025–2027 after serving as Vice-Chair. It advanced cooperation in maritime safety, the blue economy, and disaster risk management.",
+      "reference_pages": [
+        17
+      ],
+      "metadata": {
+        "topic": "indian_ocean_region",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "question_id": "mea_q018",
+      "question": "What improvements and awareness activity does the report mention for MEA’s e-governance and cybersecurity work?",
+      "relevant_chunk_ids": [
+        "1cf0cfbfdabbcc0dbe87781727b4750e66fd5631e9f4bfbdaf3bf597ee05dd61"
+      ],
+      "reference_answer": "The report says MEA’s in-house MEADOWS application received additional utility modules and functional and security improvements. The division also introduced Cyber Jagrookta Diwas, observed on the first Wednesday of every month, to raise cybersecurity awareness.",
+      "reference_pages": [
+        38
+      ],
+      "metadata": {
+        "topic": "egovernance_cybersecurity",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "question_id": "mea_q019",
+      "question": "What line of credit did India extend to Angola, and which infrastructure project is mentioned as an example?",
+      "relevant_chunk_ids": [
+        "996902530f2f292fc2f5295d74c6b13840ff3fb9938ad9ef3d24393802093e44"
+      ],
+      "reference_answer": "India extended a USD 200 million line of credit to Angola. The report mentions support for infrastructure projects such as the Niangdo Dam.",
+      "reference_pages": [
+        7
+      ],
+      "metadata": {
+        "topic": "africa_development_partnership",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "question_id": "mea_q020",
+      "question": "How does the report describe India’s approach to international development cooperation, and how many people were trained under ITEC?",
+      "relevant_chunk_ids": [
+        "862b63b600bb5aeda63242dd3df0bb087d54dd7ae5cf6cb4dde8d70fe575c493"
+      ],
+      "reference_answer": "India’s development cooperation is described as demand-driven and based on non-interference and mutual benefit, using concessional finance, projects, debt relief, and capacity-building. The synopsis reports that over 14,000 individuals were trained under ITEC, including multi-country and Defence-ITEC training slots.",
+      "reference_pages": [
+        8
+      ],
+      "metadata": {
+        "topic": "development_cooperation",
+        "difficulty": "hard"
+      }
+    }
+  ]
+}
