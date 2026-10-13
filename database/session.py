@@ -19,21 +19,16 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 
-def _get_database_url() -> str:
-    """
-    Read and normalize DATABASE_URL.
 
-    Supports PostgreSQL URLs supplied by local installations
-    and cloud providers.
-    """
-    database_url = os.getenv("DATABASE_URL", "").strip()
+def _get_database_url() -> str:
+    database_url = os.getenv("DATABASE_URL")
 
     if not database_url:
         raise RuntimeError(
-            "DATABASE_URL is not configured. Add it to your .env file."
+            "DATABASE_URL environment variable is not configured."
         )
 
-    # Normalize common PostgreSQL URL formats for SQLAlchemy asyncio.
+    # Normalize PostgreSQL URL schemes for SQLAlchemy asyncpg.
     if database_url.startswith("postgres://"):
         database_url = database_url.replace(
             "postgres://",
@@ -47,41 +42,41 @@ def _get_database_url() -> str:
             1,
         )
 
-    if not database_url.startswith("postgresql+asyncpg://"):
-        raise ValueError(
-            "DATABASE_URL must use PostgreSQL. Supported formats include "
-            "postgresql:// and postgresql+asyncpg://."
-        )
-
     return database_url
 
 
 def _create_engine() -> AsyncEngine:
-    """Create the async SQLAlchemy engine."""
+    from sqlalchemy.engine import make_url
+
     database_url = _get_database_url()
+    url = make_url(database_url)
 
-    is_sqlite = database_url.startswith("sqlite")
+    # Move SSL configuration from URL query parameters to
+    # asyncpg's connect arguments.
+    query = dict(url.query)
+    sslmode = query.pop("sslmode", None)
 
-    # Pool settings are suitable for a small API deployment.
-    # SQLAlchemy's async PostgreSQL engine uses connection pooling.
-    engine_options: dict[str, Any] = {
+    connect_args = {}
+
+    if sslmode:
+        if sslmode in ("require", "verify-ca", "verify-full"):
+            connect_args["ssl"] = sslmode
+        elif sslmode in ("disable", "allow", "prefer"):
+            connect_args["ssl"] = False
+
+    url = url.set(query=query)
+
+    engine_options = {
         "pool_pre_ping": True,
-        "echo": os.getenv("SQL_ECHO", "false").lower() == "true",
+        "pool_recycle": 1800,
+        "connect_args": connect_args,
     }
 
-    if not is_sqlite:
-        engine_options.update(
-            {
-                "pool_size": int(os.getenv("DB_POOL_SIZE", "5")),
-                "max_overflow": int(os.getenv("DB_MAX_OVERFLOW", "5")),
-                "pool_recycle": int(os.getenv("DB_POOL_RECYCLE", "1800")),
-            }
-        )
-
     return create_async_engine(
-        database_url,
+        url,
         **engine_options,
     )
+
 
 
 # One engine and session factory per application process.
