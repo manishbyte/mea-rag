@@ -54,7 +54,21 @@ def _create_engine() -> AsyncEngine:
     # Move SSL configuration from URL query parameters to
     # asyncpg's connect arguments.
     query = dict(url.query)
+
+    # Remove parameters that asyncpg does not accept as
+    # direct connection arguments.
     sslmode = query.pop("sslmode", None)
+    query.pop("channel_binding", None)
+
+    connect_args = {}
+
+    if sslmode:
+        if sslmode in ("require", "verify-ca", "verify-full"):
+            connect_args["ssl"] = sslmode
+        elif sslmode in ("disable", "allow", "prefer"):
+            connect_args["ssl"] = False
+
+    url = url.set(query=query)
 
     connect_args = {}
 
