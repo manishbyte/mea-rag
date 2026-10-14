@@ -5,10 +5,11 @@ import asyncio
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from indexing.embedding_model import EmbeddingModel
-from indexing.chroma_store import ChromaStore
+if TYPE_CHECKING:
+    from indexing.embedding_model import EmbeddingModel
+    from indexing.chroma_store import ChromaStore
 
 
 logger = logging.getLogger(__name__)
@@ -27,13 +28,18 @@ class IndexBuilder:
         if batch_size < 1:
             raise ValueError("batch_size must be at least 1.")
 
+        # Defer heavy ML and vector-store imports until construction.
+        from indexing.embedding_model import EmbeddingModel
+        from indexing.chroma_store import ChromaStore
+
         self.chunks_path = Path(chunks_path)
         self.batch_size = batch_size
 
-        self.embedder = EmbeddingModel(
+        self.embedder: EmbeddingModel = EmbeddingModel(
             batch_size=batch_size,
         )
-        self.store = ChromaStore(
+
+        self.store: ChromaStore = ChromaStore(
             persist_directory=persist_directory,
             collection_name=collection_name,
         )
@@ -107,12 +113,19 @@ class IndexBuilder:
     async def build(self) -> dict[str, Any]:
         """Embed chunks in batches and upsert them into ChromaDB."""
 
+        logger.info("Loading processed document chunks.")
+
         chunks = await self.load_chunks()
 
         if not chunks:
             raise ValueError(
                 "No chunks found. Check the ingestion output."
             )
+
+        logger.info(
+            "Loaded %d chunks. Initializing embedding model.",
+            len(chunks),
+        )
 
         await self.embedder.load()
         await self.store.initialize()
@@ -129,7 +142,7 @@ class IndexBuilder:
             ids = [chunk["chunk_id"] for chunk in batch]
             metadatas = [chunk["metadata"] for chunk in batch]
 
-            # Generate vectors locally in a worker thread.
+            # Generate vectors in a worker thread through EmbeddingModel.
             embeddings = await self.embedder.embed_texts(texts)
 
             if len(embeddings) != len(batch):
@@ -137,7 +150,6 @@ class IndexBuilder:
                     "Embedding count does not match batch size."
                 )
 
-            # Upsert makes rerunning the builder safe for matching IDs.
             await self.store.upsert(
                 ids=ids,
                 documents=texts,

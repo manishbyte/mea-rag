@@ -4,18 +4,19 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Sequence
 
-from indexing.embedding_model import EmbeddingModel
-from indexing.chroma_store import ChromaStore
-from indexing.index_builder import IndexBuilder
+if TYPE_CHECKING:
+    from indexing.embedding_model import EmbeddingModel
+    from indexing.chroma_store import ChromaStore
+    from indexing.index_builder import IndexBuilder
 
 
 logger = logging.getLogger(__name__)
 
 
 class IndexManager:
-    """Coordinate vector indexing and semantic retrieval."""
+    """Manage embedding, indexing, and vector search operations."""
 
     def __init__(
         self,
@@ -24,16 +25,23 @@ class IndexManager:
         collection_name: str = "mea_annual_report",
         batch_size: int = 32,
     ) -> None:
+        # Defer heavy ML and vector-store imports until construction.
+        from indexing.embedding_model import EmbeddingModel
+        from indexing.chroma_store import ChromaStore
+        from indexing.index_builder import IndexBuilder
+
         self.chunks_path = Path(chunks_path)
 
-        self.embedder = EmbeddingModel(batch_size=batch_size)
+        self.embedder: EmbeddingModel = EmbeddingModel(
+            batch_size=batch_size,
+        )
 
-        self.store = ChromaStore(
+        self.store: ChromaStore = ChromaStore(
             persist_directory=persist_directory,
             collection_name=collection_name,
         )
 
-        self.builder = IndexBuilder(
+        self.builder: IndexBuilder = IndexBuilder(
             chunks_path=chunks_path,
             persist_directory=persist_directory,
             collection_name=collection_name,
@@ -48,7 +56,7 @@ class IndexManager:
         await self.store.initialize()
 
     async def build_index(self) -> dict[str, Any]:
-        """Build or update the vector index from processed chunks."""
+        """Build the vector index from processed document chunks."""
 
         logger.info("Starting MEA vector index build.")
 
@@ -58,7 +66,6 @@ class IndexManager:
         """Return the current vector index status."""
 
         await self.initialize()
-
         count = await self.store.count()
 
         return {
@@ -77,10 +84,10 @@ class IndexManager:
         top_k: int = 10,
         where: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """Find relevant chunks using semantic vector similarity."""
+        """Search indexed document chunks using query embeddings."""
 
         if not isinstance(query, str) or not query.strip():
-            raise ValueError("Search query must not be empty.")
+            raise ValueError("Query must not be empty.")
 
         if top_k < 1:
             raise ValueError("top_k must be at least 1.")
@@ -102,64 +109,73 @@ class IndexManager:
                 where=where,
             )
 
-            return [
-                {
-                    **result,
-                    "rank": rank,
-                    "source": result["metadata"].get(
-                        "source", "unknown"
-                    ),
-                    "page_number": result["metadata"].get(
-                        "page_number"
-                    ),
-                }
-                for rank, result in enumerate(results, start=1)
-            ]
+            formatted_results: list[dict[str, Any]] = []
+
+            for rank, result in enumerate(results, start=1):
+                metadata = result.get("metadata") or {}
+
+                formatted_results.append(
+                    {
+                        "rank": rank,
+                        "chunk_id": result.get("chunk_id"),
+                        "text": result.get("text", ""),
+                        "metadata": metadata,
+                        "distance": result.get("distance"),
+                        "source": metadata.get("source"),
+                        "page": metadata.get("page"),
+                    }
+                )
+
+            return formatted_results
 
     async def close(self) -> None:
-        """Release application references to local model and store."""
+        """Release manager-level resources."""
 
-        # PersistentClient stores data automatically.
-        # No explicit commit or close is required for this client.
-        self._search_semaphore = asyncio.Semaphore(4)
+        # Chroma PersistentClient persists data automatically.
+        # There is no explicit commit required.
         logger.info("Index manager is ready to be discarded.")
 
 
 async def main() -> None:
     logging.basicConfig(
         level=logging.INFO,
-        format="%(levelname)s: %(message)s",
+        format="%(asctime)s | %(levelname)s | %(message)s",
     )
 
     manager = IndexManager()
 
-    status = await manager.index_status()
-    print("=== Index Status ===")
+    try:
+        status = await manager.index_status()
 
-    for key, value in status.items():
-        print(f"{key}: {value}")
+        print("\n=== MEA Vector Index Status ===")
 
-    if status["indexed_chunks"] == 0:
-        print("\nIndex is empty. Building the index...")
-        summary = await manager.build_index()
-
-        for key, value in summary.items():
+        for key, value in status.items():
             print(f"{key}: {value}")
 
-    query = "What are India's major foreign policy priorities?"
+        if status["indexed_chunks"] == 0:
+            print("\nVector index is empty. Building index...")
+            summary = await manager.build_index()
 
-    print(f"\n=== Search: {query} ===")
+            print("\n=== MEA Vector Index Summary ===")
 
-    results = await manager.search(query, top_k=5)
+            for key, value in summary.items():
+                print(f"{key}: {value}")
 
-    for result in results:
-        print(
-            f"\nRank: {result['rank']} | "
-            f"Source: {result['source']} | "
-            f"Page: {result['page_number']}"
-        )
-        print(f"Distance: {result['distance']:.4f}")
-        print(result["text"][:700])
+        query = "What are India's major foreign policy priorities?"
+        results = await manager.search(query, top_k=5)
+
+        print(f"\n=== Search Results: {query} ===")
+
+        for result in results:
+            print(f"\nRank: {result['rank']}")
+            print(f"Chunk ID: {result['chunk_id']}")
+            print(f"Source: {result['source']}")
+            print(f"Page: {result['page']}")
+            print(f"Distance: {result['distance']}")
+            print(f"Text: {result['text'][:1000]}")
+
+    finally:
+        await manager.close()
 
 
 if __name__ == "__main__":
