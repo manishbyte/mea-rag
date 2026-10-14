@@ -2,9 +2,14 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Sequence
+import logging
+from typing import Any, Sequence, TYPE_CHECKING
 
-from sentence_transformers import CrossEncoder
+if TYPE_CHECKING:
+    from sentence_transformers import CrossEncoder
+
+
+logger = logging.getLogger(__name__)
 
 
 class Reranker:
@@ -42,18 +47,31 @@ class Reranker:
             return
 
         async with self._model_lock:
-            if self._model is None:
-                self._model = await asyncio.to_thread(
-                    CrossEncoder,
+            if self._model is not None:
+                return
+
+            logger.info(
+                "Loading reranker model: %s",
+                self.model_name,
+            )
+
+            def load_model() -> CrossEncoder:
+                from sentence_transformers import CrossEncoder
+
+                return CrossEncoder(
                     self.model_name,
                     max_length=self.max_length,
                 )
+
+            self._model = await asyncio.to_thread(load_model)
+
+            logger.info("Reranker model loaded successfully.")
 
     def _predict_sync(
         self,
         pairs: list[tuple[str, str]],
     ) -> list[float]:
-        """Run cross-encoder inference in the current worker thread."""
+        """Run cross-encoder inference in a worker thread."""
 
         if self._model is None:
             raise RuntimeError("Reranker model has not been loaded.")
@@ -72,12 +90,7 @@ class Reranker:
         documents: Sequence[dict[str, Any]],
         top_k: int | None = None,
     ) -> list[dict[str, Any]]:
-        """
-        Score and reorder retrieved chunks by query relevance.
-
-        Each document must contain a non-empty 'text' field.
-        Other document fields are preserved in the output.
-        """
+        """Score and reorder retrieved chunks by query relevance."""
 
         if not isinstance(query, str) or not query.strip():
             raise ValueError("Query must not be empty.")
@@ -112,40 +125,38 @@ class Reranker:
             for document in valid_documents
         ]
 
-        # Protect model inference if multiple requests share this instance.
         async with self._inference_lock:
             scores = await asyncio.to_thread(
                 self._predict_sync,
                 pairs,
             )
 
-        ranked_documents = []
-
-        for document, score in zip(valid_documents, scores):
-            ranked_documents.append(
-                {
-                    **document,
-                    "reranker_score": score,
-                }
+        if len(scores) != len(valid_documents):
+            raise RuntimeError(
+                "Reranker score count does not match document count."
             )
+
+        ranked_documents = [
+            {
+                **document,
+                "reranker_score": score,
+            }
+            for document, score in zip(valid_documents, scores)
+        ]
 
         ranked_documents.sort(
             key=lambda item: item["reranker_score"],
             reverse=True,
         )
 
-        results: list[dict[str, Any]] = []
-
-        for rank, document in enumerate(
-            ranked_documents[:result_limit],
-            start=1,
-        ):
-            results.append(
-                {
-                    **document,
-                    "reranker_rank": rank,
-                    "retrieval_method": "hybrid_reranked",
-                }
+        return [
+            {
+                **document,
+                "reranker_rank": rank,
+                "retrieval_method": "hybrid_reranked",
+            }
+            for rank, document in enumerate(
+                ranked_documents[:result_limit],
+                start=1,
             )
-
-        return results
+        ]
