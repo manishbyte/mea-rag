@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import asyncio
@@ -60,17 +59,17 @@ async def close_resource(resource: Any) -> None:
     if resource is None:
         return
 
-    close_method = getattr(resource, "close", None)
+    close_method = getattr(resource, "aclose", None)
+    if not callable(close_method):
+        close_method = getattr(resource, "close", None)
 
     if not callable(close_method):
         return
 
     try:
         result = close_method()
-
         if hasattr(result, "__await__"):
             await result
-
     except Exception:
         logger.exception(
             "Failed to close resource: %s",
@@ -84,24 +83,18 @@ async def close_resources(resources: list[Any]) -> None:
         await close_resource(resource)
 
 
-async def build_application() -> tuple[Any, list[Any]]:
+def build_application_sync() -> tuple[Any, list[Any]]:
     """
-    Initialize the complete RAG application.
+    Build the complete RAG application synchronously.
 
-    Returns:
-        graph: Compiled LangGraph workflow.
-        resources: Resources that should be closed after execution.
-
-    This function does not start the interactive chatbot, making it
-    suitable for evaluation runners and other programmatic callers.
+    Call this directly from synchronous programs, or through
+    build_application() from asynchronous programs.
     """
     load_dotenv()
-
     logger.info("Initializing MEA RAG application components")
 
     # 1. Vector and lexical retrieval
     index_manager = IndexManager()
-
     vector_search = VectorSearch(index_manager)
     bm25_search = BM25Search()
 
@@ -121,7 +114,6 @@ async def build_application() -> tuple[Any, list[Any]]:
 
     # 2. LLM and RAG components
     llm = LLMModels()
-
     answer_generator = AnswerGenerator(llm=llm)
     citation_builder = CitationBuilder()
     answer_validator = AnswerValidator()
@@ -147,8 +139,18 @@ async def build_application() -> tuple[Any, list[Any]]:
     ]
 
     logger.info("MEA RAG application initialized successfully")
-
     return graph, resources
+
+
+async def build_application() -> tuple[Any, list[Any]]:
+    """
+    Build the RAG application without blocking the current event loop.
+
+    The import of this module itself can still import its dependencies,
+    so API callers should also defer importing this module to a worker
+    thread. This wrapper is primarily for async callers within this module.
+    """
+    return await asyncio.to_thread(build_application_sync)
 
 
 async def run_query(
@@ -158,12 +160,7 @@ async def run_query(
     user_id: str = "local-test-user",
     conversation_history: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """
-    Run a question through the RAG workflow.
-
-    This function is shared by interactive usage and evaluation.
-    It returns the complete graph state rather than printing it.
-    """
+    """Run a question through the RAG workflow and return the graph state."""
     initial_state = {
         "conversation_id": conversation_id or str(uuid.uuid4()),
         "user_id": user_id,
@@ -177,9 +174,7 @@ async def run_query(
     elif hasattr(graph, "invoke"):
         result = await asyncio.to_thread(graph.invoke, initial_state)
     else:
-        raise TypeError(
-            "The graph must expose ainvoke() or invoke()."
-        )
+        raise TypeError("The graph must expose ainvoke() or invoke().")
 
     if not isinstance(result, dict):
         raise TypeError(
@@ -221,7 +216,6 @@ def display_response(result: dict[str, Any]) -> None:
 
     for number, document in enumerate(documents, start=1):
         metadata = document.get("metadata") or {}
-
         source = document.get("source") or metadata.get("source", "Unknown")
         page = (
             document.get("page_number")
@@ -311,7 +305,6 @@ async def main() -> None:
                 )
 
                 display_response(result)
-
                 finished_at = datetime.now(timezone.utc)
 
                 print_section("EXECUTION SUMMARY")
@@ -329,7 +322,6 @@ async def main() -> None:
                 })
 
                 assistant_message = result.get("assistant_message")
-
                 if assistant_message:
                     conversation_history.append(dict(assistant_message))
                 elif result.get("answer"):
@@ -347,7 +339,7 @@ async def main() -> None:
 
     except Exception:
         logger.exception("Application initialization failed")
-        sys.exit_code = 1
+        raise SystemExit(1)
 
     finally:
         await close_resources(resources)
