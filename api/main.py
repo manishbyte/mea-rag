@@ -1,14 +1,16 @@
-﻿from __future__ import annotations
+﻿
+from __future__ import annotations
 
 import asyncio
 import inspect
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
@@ -20,6 +22,7 @@ from api.routes.health import router as health_router
 from database.models import Base
 from database.session import close_database, engine
 
+
 logger = logging.getLogger(__name__)
 
 APP_NAME = "MEA Annual Report RAG API"
@@ -30,7 +33,10 @@ API_PREFIX = "/api"
 def _configure_logging() -> None:
     logging.basicConfig(
         level=os.getenv("LOG_LEVEL", "INFO").upper(),
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+        format=(
+            "%(asctime)s | %(levelname)s | "
+            "%(name)s | %(message)s"
+        ),
     )
 
 
@@ -47,15 +53,23 @@ async def _initialize_database() -> None:
 
 def _build_rag_application_sync() -> tuple[Any, Any]:
     """
-    Import and construct RAG components in a worker thread.
+    Import and construct RAG components inside a worker thread.
 
-    Importing main imports embedding, retrieval, reranking, and LLM
-    modules. Doing that inside this function prevents those imports
-    from blocking the FastAPI event-loop thread.
+    This keeps synchronous imports and component initialization
+    from blocking the FastAPI event loop.
     """
+    logger.info("Importing root RAG application module.")
+
     from main import build_application_sync
 
-    return build_application_sync()
+    logger.info("Root RAG module imported.")
+    logger.info("Constructing RAG application components.")
+
+    result = build_application_sync()
+
+    logger.info("RAG application construction finished.")
+
+    return result
 
 
 async def _close_resources(resources: Any) -> None:
@@ -79,15 +93,19 @@ async def _close_resources(resources: Any) -> None:
         seen.add(id(resource))
 
         close_method = getattr(resource, "aclose", None)
+
         if not callable(close_method):
             close_method = getattr(resource, "close", None)
+
         if not callable(close_method):
             continue
 
         try:
             result = close_method()
+
             if inspect.isawaitable(result):
                 await result
+
         except Exception:
             logger.exception(
                 "Failed to close resource %s",
@@ -96,56 +114,102 @@ async def _close_resources(resources: Any) -> None:
 
 
 async def _initialize_rag(application: FastAPI) -> None:
-    """Initialize the complete RAG pipeline without blocking the event loop."""
+    """Initialize RAG in the background and expose its actual status."""
     resources: Any = None
+    started_at = time.monotonic()
+
+    application.state.rag_status = "initializing"
+    application.state.rag_error = None
 
     try:
         logger.info("Starting background RAG initialization.")
+        logger.info(
+            "RAG initialization is running in a worker thread."
+        )
 
-        # This offloads both importing main and synchronous construction.
         graph, resources = await asyncio.to_thread(
             _build_rag_application_sync
         )
 
         if application.state.shutting_down:
+            logger.warning(
+                "RAG initialization finished during shutdown."
+            )
             await _close_resources(resources)
+            resources = None
             return
 
-        application.state.rag_resources = resources
-        application.state.rag_graph = graph
-        application.state.startup_complete = True
+        if graph is None:
+            raise RuntimeError(
+                "RAG initialization returned an empty graph."
+            )
 
-        logger.info("RAG initialization completed successfully.")
+        application.state.rag_graph = graph
+        application.state.rag_resources = resources
+        application.state.startup_complete = True
+        application.state.rag_status = "ready"
+        application.state.rag_error = None
+
+        elapsed = time.monotonic() - started_at
+
+        logger.info(
+            "RAG initialization completed successfully in %.2f seconds.",
+            elapsed,
+        )
         logger.info("%s is ready to answer questions.", APP_NAME)
 
     except asyncio.CancelledError:
-        logger.info("Background RAG initialization was cancelled.")
+        application.state.rag_status = "stopped"
+        application.state.startup_complete = False
+
+        logger.warning("Background RAG initialization was cancelled.")
+
         await _close_resources(resources)
         raise
 
-    except Exception:
+    except Exception as exc:
         application.state.rag_graph = None
         application.state.startup_complete = False
+        application.state.rag_status = "failed"
+        application.state.rag_error = (
+            f"{type(exc).__name__}: {str(exc)[:500]}"
+        )
+
         logger.exception(
-            "RAG initialization failed. The API remains available, "
-            "but chat requests should report that RAG is not ready."
+            "RAG initialization failed after %.2f seconds.",
+            time.monotonic() - started_at,
+        )
+
+        await _close_resources(resources)
+
+        logger.error(
+            "The API remains available, but RAG chat is not ready."
         )
 
 
 @asynccontextmanager
-async def lifespan(application: FastAPI) -> AsyncIterator[None]:
-    """Initialize PostgreSQL, then start full RAG initialization in background."""
+async def lifespan(
+    application: FastAPI,
+) -> AsyncIterator[None]:
+    """Initialize PostgreSQL and start RAG initialization in background."""
     _configure_logging()
 
     application.state.rag_graph = None
     application.state.rag_resources = None
     application.state.startup_complete = False
+    application.state.rag_status = "initializing"
+    application.state.rag_error = None
     application.state.shutting_down = False
     application.state.rag_task = None
 
     try:
         logger.info("Initializing database.")
+
         await _initialize_database()
+
+        logger.info(
+            "Database initialized successfully."
+        )
 
         application.state.rag_task = asyncio.create_task(
             _initialize_rag(application),
@@ -153,8 +217,8 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         )
 
         logger.info(
-            "Database initialized. API startup is continuing while "
-            "the RAG pipeline initializes in the background."
+            "API startup is continuing while RAG initializes "
+            "in the background."
         )
 
         yield
@@ -166,17 +230,32 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     finally:
         application.state.shutting_down = True
         application.state.startup_complete = False
-        application.state.rag_graph = None
 
         rag_task = application.state.rag_task
+
         if rag_task is not None and not rag_task.done():
             rag_task.cancel()
-            await asyncio.gather(rag_task, return_exceptions=True)
 
-        await _close_resources(application.state.rag_resources)
+            await asyncio.gather(
+                rag_task,
+                return_exceptions=True,
+            )
+
+        application.state.rag_graph = None
+
+        await _close_resources(
+            application.state.rag_resources
+        )
+
         application.state.rag_resources = None
 
-        await close_database()
+        try:
+            await close_database()
+        except Exception:
+            logger.exception("Failed to close database connections.")
+
+        application.state.rag_status = "stopped"
+
         logger.info("%s shut down.", APP_NAME)
 
 
@@ -191,6 +270,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
 cors_origins = [
     origin.strip()
     for origin in os.getenv(
@@ -200,13 +280,24 @@ cors_origins = [
     if origin.strip()
 ]
 
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=[
+        "GET",
+        "POST",
+        "PATCH",
+        "DELETE",
+        "OPTIONS",
+    ],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+    ],
 )
+
 
 app.include_router(auth_router, prefix=API_PREFIX)
 app.include_router(health_router, prefix=API_PREFIX)
@@ -224,11 +315,29 @@ async def root() -> dict[str, str]:
 
 
 @app.get("/api/health/startup", tags=["Health"])
-async def startup_status() -> dict[str, str]:
-    """Report API availability separately from RAG readiness."""
+async def startup_status() -> dict[str, Any]:
+    """Return the current API and RAG initialization status."""
     return {
         "status": "running",
-        "rag_status": (
-            "ready" if app.state.startup_complete else "initializing"
-        ),
+        "rag_status": app.state.rag_status,
+        "rag_error": app.state.rag_error,
+    }
+
+
+@app.get("/api/health/ready", tags=["Health"])
+async def readiness() -> dict[str, str]:
+    """Return success only when the RAG pipeline is ready."""
+    if not app.state.startup_complete:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "not_ready",
+                "rag_status": app.state.rag_status,
+                "rag_error": app.state.rag_error,
+            },
+        )
+
+    return {
+        "status": "ready",
+        "rag_status": "ready",
     }
