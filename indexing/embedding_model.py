@@ -7,6 +7,7 @@ from typing import Sequence
 from sentence_transformers import SentenceTransformer
 
 
+
 class EmbeddingModel:
     """Generate local embeddings without blocking the event loop."""
 
@@ -28,9 +29,9 @@ class EmbeddingModel:
         self._model_lock = asyncio.Lock()
 
     def _load_model_sync(self) -> SentenceTransformer:
-        """Load the model in a worker thread."""
-
         if self._model is None:
+            from sentence_transformers import SentenceTransformer
+
             self._model = SentenceTransformer(self.model_name)
 
         return self._model
