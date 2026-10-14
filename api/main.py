@@ -1,6 +1,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import logging
 import os
@@ -8,7 +9,7 @@ from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
@@ -81,33 +82,71 @@ async def _close_resources(resources: Any) -> None:
             )
 
 
+async def _initialize_rag(application: FastAPI) -> None:
+    """Initialize the RAG pipeline without blocking API startup."""
+    resources: Any = None
+
+    try:
+        logger.info("Starting background RAG initialization.")
+
+        from main import build_application
+
+        graph, resources = await build_application()
+
+        # Do not publish resources if shutdown has already started.
+        if application.state.shutting_down:
+            await _close_resources(resources)
+            return
+
+        application.state.rag_resources = resources
+        application.state.rag_graph = graph
+        application.state.startup_complete = True
+
+        logger.info("RAG initialization completed successfully.")
+        logger.info("%s is ready to answer questions.", APP_NAME)
+
+    except asyncio.CancelledError:
+        logger.info("Background RAG initialization was cancelled.")
+        await _close_resources(resources)
+        raise
+
+    except Exception:
+        # Keep the API alive so health endpoints remain accessible.
+        application.state.rag_graph = None
+        application.state.startup_complete = False
+        logger.exception(
+            "RAG initialization failed. The API is running, "
+            "but chat requests are unavailable until RAG is initialized."
+        )
+
+
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
-    """Initialize shared resources at startup and release them at shutdown."""
+    """Start the API promptly and initialize RAG in the background."""
     _configure_logging()
 
     application.state.rag_graph = None
     application.state.rag_resources = None
     application.state.startup_complete = False
+    application.state.shutting_down = False
+    application.state.rag_task = None
 
     try:
+        logger.info("Initializing database.")
         await _initialize_database()
 
-        # The existing root main.py returns (graph, resources).
-        from main import build_application
+        # Schedule model and index initialization without awaiting it.
+        application.state.rag_task = asyncio.create_task(
+            _initialize_rag(application),
+            name="mea-rag-initialization",
+        )
 
-        logger.info("Starting RAG application initialization.")
+        logger.info(
+            "API startup completed. RAG initialization is running "
+            "in the background."
+        )
 
-        graph, resources = await build_application()
-
-        logger.info("RAG application initialization completed.")
-
-        application.state.rag_graph = graph
-        application.state.rag_resources = resources
-        application.state.startup_complete = True
-
-        logger.info("%s started successfully.", APP_NAME)
-
+        # Uvicorn can now start serving requests.
         yield
 
     except Exception:
@@ -115,8 +154,15 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         raise
 
     finally:
+        application.state.shutting_down = True
         application.state.startup_complete = False
         application.state.rag_graph = None
+
+        rag_task = application.state.rag_task
+
+        if rag_task is not None and not rag_task.done():
+            rag_task.cancel()
+            await asyncio.gather(rag_task, return_exceptions=True)
 
         await _close_resources(application.state.rag_resources)
         application.state.rag_resources = None
@@ -153,7 +199,6 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
-# Register each router exactly once.
 app.include_router(auth_router, prefix=API_PREFIX)
 app.include_router(health_router, prefix=API_PREFIX)
 app.include_router(chat_router, prefix=API_PREFIX)
@@ -171,10 +216,10 @@ async def root() -> dict[str, str]:
 
 @app.get("/api/health/startup", tags=["Health"])
 async def startup_status() -> dict[str, str]:
-    if not app.state.startup_complete:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Application startup is not complete.",
-        )
+    """Report API availability separately from RAG readiness."""
+    rag_ready = app.state.startup_complete
 
-    return {"status": "started"}
+    return {
+        "status": "running",
+        "rag_status": "ready" if rag_ready else "initializing",
+    }
